@@ -49,7 +49,7 @@ def escape_md(text: str) -> str:
     return re.sub(r'([' + re.escape(special) + r'])', r'\\\1', text)
 
 def format_message(parsed: dict) -> str:
-    lines = ["💳 *中國信託刷卡通知*", ""]
+    lines = ["🔔 *中國信託刷卡通知* 🔔", ""]
 
     # 所有從外部來的變數都要跳脫，避免 MarkdownV2 解析錯誤
     if parsed["amount"]:
