@@ -1,0 +1,11 @@
+services:
+  ctbc-webhook:
+    build: .
+    container_name: ctbc-webhook
+    restart: unless-stopped
+    ports:
+      - "5000:5000"
+    environment:
+      - TELEGRAM_TOKEN=你的BOT_TOKEN
+      - TELEGRAM_CHAT_ID=6125036159
+      - WEBHOOK_SECRET=自己設一個隨機字串
