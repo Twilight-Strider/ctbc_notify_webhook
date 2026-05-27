@@ -53,14 +53,16 @@ def format_message(parsed: dict) -> str:
 
     # 所有從外部來的變數都要跳脫，避免 MarkdownV2 解析錯誤
     if parsed["amount"]:
-        lines.append(f"💵*消費金額：* NT\\${escape_md(parsed['amount'])}")
+        lines.append(f"💵*消費金額：*NT\\${escape_md(parsed['amount'])}")
 
     if parsed["date"] and parsed["time"]:
-        lines.append(f"📅*交易時間：* {escape_md(parsed['date'])} {escape_md(parsed['time'])}")
+        lines.append(f"📅*交易時間：*{escape_md(parsed['date'])} {escape_md(parsed['time'])}")
 
     if parsed["card_type"]:
         if parsed["card_type"] == "附卡":
-            lines.append(f"💳*卡別：* 中信uniopen聯名卡附卡 \\| 卡末4碼：1931")  # | 是 MarkdownV2 特殊字元，需跳脫
+            lines.append(f"💳*卡別：*中信uniopen聯名卡附卡")
+            lines.append(f"🏦*卡末四碼：*1931")
+            # lines.append(f"💳*卡別：* 中信uniopen聯名卡附卡 \\| 卡末4碼：1931")  # | 是 MarkdownV2 特殊字元，需跳脫
         # emoji = "🔴" if parsed["card_type"] == "附卡" else "🔵"
         # lines.append(f"{emoji} {parsed['card_type']}")
 
