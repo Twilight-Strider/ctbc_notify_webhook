@@ -43,17 +43,20 @@ def parse_notification(text: str) -> dict:
 
 
 def format_message(parsed: dict) -> str:
-    lines = ["💳 *中信刷卡通知*", ""]
-
-    if parsed["date"] and parsed["time"]:
-        lines.append(f"📅 {parsed['date']} {parsed['time']}")
+    lines = ["💳 *中國信託刷卡通知*", ""]
 
     if parsed["amount"]:
-        lines.append(f"💰 NT\\${parsed['amount']}")
+        lines.append(f"💵*消費金額：* NT\\${parsed['amount']}")
+
+    if parsed["date"] and parsed["time"]:
+        lines.append(f"📅*交易時間：* {parsed['date']} {parsed['time']}")
 
     if parsed["card_type"]:
-        emoji = "🔴" if parsed["card_type"] == "附卡" else "🔵"
-        lines.append(f"{emoji} {parsed['card_type']}")
+        if parsed["card_type"] == "附卡":
+            lines.append(f"💳*卡別：* 中信uniopen聯名卡附卡 | 卡末4碼：1931")
+
+        # emoji = "🔴" if parsed["card_type"] == "附卡" else "🔵"
+        # lines.append(f"{emoji} {parsed['card_type']}")
 
     # 如果解析失敗就直接顯示原文
     if not any([parsed["date"], parsed["amount"], parsed["card_type"]]):
@@ -90,8 +93,15 @@ def webhook():
     if "刷卡通知" not in text and "刷卡通知" not in title:
         return jsonify({"status": "ignored"}), 200
 
-    parsed = parse_notification(text)
-    message = format_message(parsed)
+    # 取消交易：直接轉發原始訊息
+    if "取消交易" in text:
+        safe_text = text.replace("【", "\\[").replace("】", "\\]")  # 解決MarkdownV2 的特殊字元問題
+        message = f"🔔 *中國信託信用卡取消交易通知* 🔔\n{safe_text}"
+    else:
+        parsed = parse_notification(text)
+        if parsed["card_type"] == "正卡":
+            return jsonify({"status": "ignored"}), 200
+        message = format_message(parsed)
 
     try:
         send_telegram(message)
