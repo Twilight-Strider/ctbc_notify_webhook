@@ -41,26 +41,32 @@ def parse_notification(text: str) -> dict:
 
     return result
 
+# MarkdownV2 要求所有特殊字元前面加反斜線
+# 否則 Telegram 會回 400 Bad Request
+def escape_md(text: str) -> str:
+    """跳脫 MarkdownV2 所有特殊字元"""
+    special = r'_*[]()~`>#+-=|{}.!'
+    return re.sub(r'([' + re.escape(special) + r'])', r'\\\1', text)
 
 def format_message(parsed: dict) -> str:
     lines = ["💳 *中國信託刷卡通知*", ""]
 
+    # 所有從外部來的變數都要跳脫，避免 MarkdownV2 解析錯誤
     if parsed["amount"]:
-        lines.append(f"💵*消費金額：* NT\\${parsed['amount']}")
+        lines.append(f"💵*消費金額：* NT\\${escape_md(parsed['amount'])}")
 
     if parsed["date"] and parsed["time"]:
-        lines.append(f"📅*交易時間：* {parsed['date']} {parsed['time']}")
+        lines.append(f"📅*交易時間：* {escape_md(parsed['date'])} {escape_md(parsed['time'])}")
 
     if parsed["card_type"]:
         if parsed["card_type"] == "附卡":
-            lines.append(f"💳*卡別：* 中信uniopen聯名卡附卡 | 卡末4碼：1931")
-
+            lines.append(f"💳*卡別：* 中信uniopen聯名卡附卡 \\| 卡末4碼：1931")  # | 是 MarkdownV2 特殊字元，需跳脫
         # emoji = "🔴" if parsed["card_type"] == "附卡" else "🔵"
         # lines.append(f"{emoji} {parsed['card_type']}")
 
     # 如果解析失敗就直接顯示原文
     if not any([parsed["date"], parsed["amount"], parsed["card_type"]]):
-        lines.append(parsed["raw"])
+        lines.append(escape_md(parsed["raw"]))
 
     return "\n".join(lines)
 
