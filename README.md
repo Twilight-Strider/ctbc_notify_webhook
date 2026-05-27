@@ -177,18 +177,41 @@ https://github.com/ItsAzni/NotificationForwarder/releases/tag/v1.0
 
 ## 第四步：測試
 
-1. 在 Notification Forwarder 的 Webhook 頁面按 **Test Webhook**
-2. 確認備機 Telegram 收到測試訊息
-3. 實際刷一筆小額消費（或等待下次刷卡），確認格式正確
+### 方法 A：Test Webhook（快速確認連線）
 
-成功後備機收到的訊息格式如下：
+在 Notification Forwarder 的 Webhook 頁面按 **Test Webhook**。
+
+> ⚠️ 測試訊息內容是假的（`This is a test payload`），不含「刷卡通知」關鍵字，所以伺服器會回傳 `{"status":"ignored"}`，**不會**推送到 Telegram。這是正常的，代表過濾邏輯正常運作。去 Railway 的 HTTP Logs 確認有出現 200 回應即代表連線成功。
+
+### 方法 B：模擬真實通知（完整測試）
+
+用以下指令發送一筆模擬的刷卡通知，確認備機 Telegram 能收到完整格式的訊息。
+
+**Windows（PowerShell）：**
+```powershell
+$body = [System.Text.Encoding]::UTF8.GetBytes('{"title":"中國信託銀行","text":"【刷卡通知】您於2026/05/27 14:51中信卡消費$71元(附卡)"}')
+Invoke-WebRequest -Uri "https://你的網域/ctbc-webhook" -Method POST -Headers @{"Content-Type"="application/json"; "X-Secret"="你的WEBHOOK_SECRET"} -Body $body -UseBasicParsing
+```
+
+**macOS / Linux（Terminal）：**
+```bash
+curl -X POST "https://你的網域/ctbc-webhook" \
+  -H "Content-Type: application/json" \
+  -H "X-Secret: 你的WEBHOOK_SECRET" \
+  -d '{"title":"中國信託銀行","text":"【刷卡通知】您於2026/05/27 14:51中信卡消費$71元(附卡)"}'
+```
+
+回傳 `{"status":"ok"}` 且備機 Telegram 收到訊息即代表成功。
+
+### 成功後的訊息樣式
 
 ```
-💳 中信刷卡通知
+🔔 中國信託刷卡通知 🔔
 
-📅 2026/05/27 14:51
-💰 NT$71
-🔴 附卡
+💵 消費金額：NT$71
+🗓 交易時間：2026/05/27 14:51
+💳 卡別：中信uniopen聯名卡附卡
+🔢 卡末4碼：1931
 ```
 
 ---
