@@ -199,9 +199,9 @@ https://github.com/ItsAzni/NotificationForwarder/releases/tag/v1.0
 切換到 **Filter** 頁面：
 
 - **App filter**：選擇「中國信託銀行（Home Bank）」
-- **Text contains**：`附卡`（只轉發附卡消費，過濾掉正卡消費）
+- **Text contains**：留空
 
-> 如果想正卡、附卡都轉發，Text contains 留空即可。
+> ℹ️ Text contains 留空，讓所有 Home Bank 通知都送到伺服器。正卡/附卡的過濾邏輯由伺服器的 `send_to_subscribers()` 根據每個訂閱者的角色設定決定，不在手機端過濾。
 
 ---
 
@@ -232,6 +232,66 @@ curl -X POST "https://你的網域/ctbc-webhook" \
 ```
 
 回傳 `{"status":"ok"}` 且備機 Telegram 收到訊息即代表成功。
+
+### 方法 C：在手機 Payload template 填入模擬資料
+
+在 Notification Forwarder 的 Webhook 頁面，把 Payload template 暫時改成固定內容：
+
+**測試附卡：**
+```json
+{
+  "title": "中國信託銀行",
+  "text": "【刷卡通知】您於2026/05/27 14:51中信卡消費$71元(附卡)"
+}
+```
+
+**測試正卡：**
+```json
+{
+  "title": "中國信託銀行",
+  "text": "【刷卡通知】您於2026/05/27 14:51中信卡消費$71元(正卡)"
+}
+```
+
+按 **Test Webhook** 觸發，確認各訂閱者收到（或跳過）的行為正確。
+
+> ⚠️ 測試完成後記得把 Payload template 改回正常格式，否則之後所有真實通知都會推送這筆假資料：
+> ```json
+> {
+>   "title": "{title}",
+>   "text": "{text}"
+> }
+> ```
+
+### 方法 C：在手機 Payload template 填入模擬資料
+
+在 Notification Forwarder 的 Webhook 頁面，把 Payload template 暫時改成固定內容：
+
+**測試附卡：**
+```json
+{
+  "title": "中國信託銀行",
+  "text": "【刷卡通知】您於2026/05/27 14:51中信卡消費$71元(附卡)"
+}
+```
+
+**測試正卡：**
+```json
+{
+  "title": "中國信託銀行",
+  "text": "【刷卡通知】您於2026/05/27 14:51中信卡消費$71元(正卡)"
+}
+```
+
+按 **Test Webhook** 觸發，確認各訂閱者收到（或跳過）的行為正確。
+
+> ⚠️ 測試完成後記得把 Payload template 改回正常格式，否則之後所有真實通知都會推送這筆假資料：
+> ```json
+> {
+>   "title": "{title}",
+>   "text": "{text}"
+> }
+> ```
 
 ### 成功後的訊息樣式
 
