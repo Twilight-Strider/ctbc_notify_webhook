@@ -19,13 +19,13 @@
 
 ### 啟動時載入設定（環境變數）
 - `TELEGRAM_TOKEN`：Bot 的身份憑證
-- `TELEGRAM_SUBSCRIBERS`：訂閱者清單，格式為 `chat_id:角色`，多人用逗號分隔，例如 `123456:附卡,789012:全部`
+- `TELEGRAM_SUBSCRIBERS`：訂閱者清單，格式為 `chat_id:角色`，多人用逗號分隔
 - `WEBHOOK_SECRET`：防止陌生人亂打你的 endpoint
 
 ### `load_subscribers()`
 從環境變數讀取訂閱者設定，回傳一個字典，例如：
 ```python
-{"6125036159": "附卡", "8065049962": "全部"}
+{"100000001": "附卡", "100000002": "全部", "100000003": "正卡"}
 ```
 
 ### `parse_notification(text)`
@@ -49,6 +49,7 @@
 | 角色 | 附卡消費 | 正卡消費 | 取消交易 |
 |---|---|---|---|
 | `附卡` | ✅ 收到 | ❌ 跳過 | ✅ 收到 |
+| `正卡` | ❌ 跳過 | ✅ 收到 | ✅ 收到 |
 | `全部` | ✅ 收到 | ✅ 收到 | ✅ 收到 |
 
 ### `/ctbc-webhook`（主要路由）
@@ -75,11 +76,14 @@ card_type = None            取得 card_type（附卡/正卡/None）
         role == "全部" → 推送
         role == "附卡" 且 card_type != "正卡" → 推送
         role == "附卡" 且 card_type == "正卡" → 跳過
+        role == "正卡" 且 card_type != "附卡" → 推送
+        role == "正卡" 且 card_type == "附卡" → 跳過
 ```
 
 ### `/health`
 簡單的健康檢查端點，回傳 `{"status": "ok"}`，可用來確認服務是否正常運作。
 
+---
 
 ## 事前準備
 
@@ -98,12 +102,12 @@ card_type = None            取得 card_type（附卡/正卡/None）
    ```
    1234567890:ABCDefGhIJKlmNoPQRsTUVwxyZ
    ```
-4. 在**附卡人的備機**找到剛建立的 Bot，傳任意一則訊息（例如 `hi`）
-5. 在瀏覽器開啟以下網址取得 **chat_id**：
+4. 每個要接收通知的人，都要在備機找到剛建立的 Bot 並傳任意訊息（例如 `hi`）
+5. 在瀏覽器開啟以下網址取得各人的 **chat_id**：
    ```
    https://api.telegram.org/bot<TOKEN>/getUpdates
    ```
-6. 在回傳的 JSON 中找到 `"chat":{"id":` 後面的數字，即為 chat_id
+6. 在回傳的 JSON 中找到 `"chat":{"id":` 後面的數字，即為該人的 chat_id
 
 > ⚠️ 如果 `getUpdates` 回傳空陣列，確認備機已傳過訊息給 Bot，並先執行一次 `deleteWebhook`：
 > ```
@@ -137,8 +141,24 @@ card_type = None            取得 card_type（附卡/正卡/None）
 | Key | Value |
 |---|---|
 | `TELEGRAM_TOKEN` | 第一步取得的 Bot Token |
-| `TELEGRAM_SUBSCRIBERS` | 訂閱者清單，格式：`chat_id:角色`，多人用逗號分隔。角色填 `附卡`（只收附卡通知）或 `全部`（正附卡都收）。例如：`6125036159:附卡,8065049962:全部` |
+| `TELEGRAM_SUBSCRIBERS` | 訂閱者清單，格式見下方說明 |
 | `WEBHOOK_SECRET` | 自訂一串隨機英數字，例如 `ctbc2026xyz`（用來防止別人亂打你的 endpoint） |
+
+**TELEGRAM_SUBSCRIBERS 格式說明**
+
+每個訂閱者寫成 `chat_id:角色`，多人用逗號分隔：
+
+```
+100000001:附卡,100000002:全部,100000003:正卡
+```
+
+角色對照表：
+
+| 角色 | 附卡消費 | 正卡消費 | 取消交易 | 適合誰 |
+|---|---|---|---|---|
+| `附卡` | ✅ | ❌ | ✅ | 只想知道附卡刷了什麼 |
+| `正卡` | ❌ | ✅ | ✅ | 只想知道正卡消費 |
+| `全部` | ✅ | ✅ | ✅ | 想掌握所有消費（例如正卡持卡人） |
 
 ### 2-4. 取得公開網域
 
@@ -214,7 +234,7 @@ https://github.com/ItsAzni/NotificationForwarder/releases/tag/v1.0
 - **Max retries** / **Batch size**：維持預設（10 / 20）
 - 按 **Save Filter & Retry**
 
-> ℹ️ Text contains 或 Packages list 的過濾只是讓 Notification Forwarder 只轉發中信的通知。正卡/附卡的推送邏輯由伺服器的 `send_to_subscribers()` 根據每個訂閱者的角色設定決定，不在手機端過濾。
+> ℹ️ 正卡/附卡的推送邏輯由伺服器的 `send_to_subscribers()` 根據每個訂閱者的角色設定決定，不在手機端過濾。
 
 ---
 
@@ -282,9 +302,9 @@ curl -X POST "https://你的網域/ctbc-webhook" \
 🔔 中國信託刷卡通知 🔔
 
 💵 消費金額：NT$71
-🗓 交易時間：2026/05/27 14:51
-💳 卡別：中信uniopen聯名卡附卡
-🔢 卡末4碼：1931
+📅 交易時間：2026/05/27 14:51
+💳 卡別：中信uniopen聯名卡 | 附卡
+🏦 卡末四碼：1931
 ```
 
 ---

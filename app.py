@@ -116,6 +116,11 @@ def send_to_subscribers(message: str, card_type: str):
         # 全部：正卡附卡都推
         if role == "全部":
             send_telegram_to(chat_id, message)
+
+        # 正卡：只推正卡和無卡別通知（取消交易）
+        elif role == "正卡" and card_type != "附卡":
+            send_telegram_to(chat_id, message)
+
         # 附卡：只推附卡和無卡別通知（取消交易）
         elif role == "附卡" and card_type != "正卡":
             send_telegram_to(chat_id, message)
