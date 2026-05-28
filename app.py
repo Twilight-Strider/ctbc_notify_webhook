@@ -6,8 +6,20 @@ from flask import Flask, request, jsonify
 app = Flask(__name__)
 
 TELEGRAM_TOKEN = os.environ.get("TELEGRAM_TOKEN", "")
-TELEGRAM_CHAT_ID = os.environ.get("TELEGRAM_CHAT_ID", "")
 WEBHOOK_SECRET = os.environ.get("WEBHOOK_SECRET", "")  # 可選，防止亂打你的 endpoint
+
+# 訂閱者設定：chat_id -> 接收類型（"附卡" 或 "全部"）
+# 從環境變數 TELEGRAM_SUBSCRIBERS 讀取，格式：chat_id1:附卡,chat_id2:全部
+def load_subscribers() -> dict:
+    raw = os.environ.get("TELEGRAM_SUBSCRIBERS", "")
+    subscribers = {}
+    for entry in raw.split(","):
+        entry = entry.strip()
+        if ":" not in entry:
+            continue
+        chat_id, role = entry.split(":", 1)
+        subscribers[chat_id.strip()] = role.strip()
+    return subscribers
 
 
 def parse_notification(text: str) -> dict:
@@ -41,6 +53,7 @@ def parse_notification(text: str) -> dict:
 
     return result
 
+
 # MarkdownV2 要求所有特殊字元前面加反斜線
 # 否則 Telegram 會回 400 Bad Request
 def escape_md(text: str) -> str:
@@ -48,23 +61,24 @@ def escape_md(text: str) -> str:
     special = r'_*[]()~`>#+-=|{}.!'
     return re.sub(r'([' + re.escape(special) + r'])', r'\\\1', text)
 
+
 def format_message(parsed: dict) -> str:
     lines = ["🔔 *中國信託刷卡通知* 🔔", ""]
 
     # 所有從外部來的變數都要跳脫，避免 MarkdownV2 解析錯誤
     if parsed["amount"]:
-        lines.append(f"💵*消費金額：*NT\\${escape_md(parsed['amount'])}")
+        lines.append(f"💵 *消費金額：*NT\\${escape_md(parsed['amount'])}")
 
     if parsed["date"] and parsed["time"]:
-        lines.append(f"📅*交易時間：*{escape_md(parsed['date'])} {escape_md(parsed['time'])}")
+        lines.append(f"📅 *交易時間：*{escape_md(parsed['date'])} {escape_md(parsed['time'])}")
 
     if parsed["card_type"]:
         if parsed["card_type"] == "附卡":
-            lines.append(f"💳*卡別：*中信uniopen聯名卡附卡")
-            lines.append(f"🏦*卡末四碼：*1931")
-            # lines.append(f"💳*卡別：* 中信uniopen聯名卡附卡 \\| 卡末4碼：1931")  # | 是 MarkdownV2 特殊字元，需跳脫
-        # emoji = "🔴" if parsed["card_type"] == "附卡" else "🔵"
-        # lines.append(f"{emoji} {parsed['card_type']}")
+            lines.append(f"💳 *卡別：*中信uniopen聯名卡*附卡*")
+            lines.append(f"🏦 *卡末四碼：*1931")
+        else:
+            lines.append(f"💳 *卡別：*中信uniopen聯名卡*正卡*")
+            lines.append(f"🏦 *卡末四碼：*6020")
 
     # 如果解析失敗就直接顯示原文
     if not any([parsed["date"], parsed["amount"], parsed["card_type"]]):
@@ -73,16 +87,32 @@ def format_message(parsed: dict) -> str:
     return "\n".join(lines)
 
 
-def send_telegram(message: str):
+def send_telegram_to(chat_id: str, message: str):
+    """推送訊息給指定的 chat_id"""
     url = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendMessage"
     payload = {
-        "chat_id": TELEGRAM_CHAT_ID,
+        "chat_id": chat_id,
         "text": message,
         "parse_mode": "MarkdownV2",
     }
     resp = requests.post(url, json=payload, timeout=10)
     resp.raise_for_status()
     return resp.json()
+
+
+def send_to_subscribers(message: str, card_type: str):
+    """
+    根據每個訂閱者的設定決定是否推送
+    card_type: "附卡"、"正卡"、或 None（取消交易等無卡別通知）
+    """
+    subscribers = load_subscribers()
+    for chat_id, role in subscribers.items():
+        # 全部：正卡附卡都推
+        if role == "全部":
+            send_telegram_to(chat_id, message)
+        # 附卡：只推附卡和無卡別通知（取消交易）
+        elif role == "附卡" and card_type != "正卡":
+            send_telegram_to(chat_id, message)
 
 
 @app.route("/ctbc-webhook", methods=["POST"])
@@ -101,18 +131,18 @@ def webhook():
     if "刷卡通知" not in text and "刷卡通知" not in title:
         return jsonify({"status": "ignored"}), 200
 
-    # 取消交易：直接轉發原始訊息
+    # 取消交易：直接轉發原始訊息，card_type 設為 None
     if "取消交易" in text:
-        safe_text = text.replace("【", "\\[").replace("】", "\\]")  # 解決MarkdownV2 的特殊字元問題
+        safe_text = text.replace("【", "\\[").replace("】", "\\]")  # 解決 MarkdownV2 的特殊字元問題
         message = f"🔔 *中國信託信用卡取消交易通知* 🔔\n{safe_text}"
+        card_type = None
     else:
         parsed = parse_notification(text)
-        if parsed["card_type"] == "正卡":
-            return jsonify({"status": "ignored"}), 200
         message = format_message(parsed)
+        card_type = parsed["card_type"]
 
     try:
-        send_telegram(message)
+        send_to_subscribers(message, card_type)
     except Exception as e:
         app.logger.error(f"Telegram send failed: {e}")
         return jsonify({"error": str(e)}), 500

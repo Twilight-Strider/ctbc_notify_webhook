@@ -17,10 +17,16 @@
 
 ## 程式說明
 
-### 啟動時載入三個設定（環境變數）
+### 啟動時載入設定（環境變數）
 - `TELEGRAM_TOKEN`：Bot 的身份憑證
-- `TELEGRAM_CHAT_ID`：要推送給誰
+- `TELEGRAM_SUBSCRIBERS`：訂閱者清單，格式為 `chat_id:角色`，多人用逗號分隔，例如 `123456:附卡,789012:全部`
 - `WEBHOOK_SECRET`：防止陌生人亂打你的 endpoint
+
+### `load_subscribers()`
+從環境變數讀取訂閱者設定，回傳一個字典，例如：
+```python
+{"6125036159": "附卡", "8065049962": "全部"}
+```
 
 ### `parse_notification(text)`
 收到原始通知文字，用正則表達式拆出四個欄位：
@@ -31,20 +37,44 @@
 ### `format_message(parsed)`
 把解析結果組成格式化的 Telegram 訊息。如果三個欄位都解析失敗，直接顯示原始文字當備用。
 
-### `send_telegram(message)`
-打 Telegram Bot API，把訊息用 MarkdownV2 格式推送給指定的 chat_id。
+### `escape_md(text)`
+跳脫 MarkdownV2 的所有特殊字元，避免 Telegram 回傳 400 Bad Request。所有從外部來的變數（金額、日期、時間）都必須經過這個函數處理。
+
+### `send_telegram_to(chat_id, message)`
+推送訊息給指定的單一 chat_id。
+
+### `send_to_subscribers(message, card_type)`
+根據每個訂閱者的角色設定決定是否推送：
+
+| 角色 | 附卡消費 | 正卡消費 | 取消交易 |
+|---|---|---|---|
+| `附卡` | ✅ 收到 | ❌ 跳過 | ✅ 收到 |
+| `全部` | ✅ 收到 | ✅ 收到 | ✅ 收到 |
 
 ### `/ctbc-webhook`（主要路由）
-Notification Forwarder 打來的入口，處理邏輯如下：
+Notification Forwarder 打來的入口，判定邏輯如下：
 
 ```
 收到請求
-  → 驗證 X-Secret header
-  → 沒有「刷卡通知」關鍵字 → ignored
-  → 有「取消交易」→ 跳脫特殊字元，直接推原始文字
-  → 其他刷卡通知 → 解析
-      → 是正卡 → ignored
-      → 是附卡 → 格式化後推送
+  ↓
+驗證 X-Secret → 不對 → 401 拒絕
+  ↓ 對
+檢查有無「刷卡通知」關鍵字 → 沒有 → ignored
+  ↓ 有
+檢查有無「取消交易」
+  ↓ 有                          ↓ 沒有
+組取消交易訊息              parse_notification() 解析
+card_type = None            取得 card_type（附卡/正卡/None）
+  ↓                              ↓
+  └──────────────┬───────────────┘
+                 ↓
+        send_to_subscribers(message, card_type)
+                 ↓
+        逐一檢查每個訂閱者
+                 ↓
+        role == "全部" → 推送
+        role == "附卡" 且 card_type != "正卡" → 推送
+        role == "附卡" 且 card_type == "正卡" → 跳過
 ```
 
 ### `/health`
@@ -107,7 +137,7 @@ Notification Forwarder 打來的入口，處理邏輯如下：
 | Key | Value |
 |---|---|
 | `TELEGRAM_TOKEN` | 第一步取得的 Bot Token |
-| `TELEGRAM_CHAT_ID` | 第一步取得的附卡人 chat_id |
+| `TELEGRAM_SUBSCRIBERS` | 訂閱者清單，格式：`chat_id:角色`，多人用逗號分隔。角色填 `附卡`（只收附卡通知）或 `全部`（正附卡都收）。例如：`6125036159:附卡,8065049962:全部` |
 | `WEBHOOK_SECRET` | 自訂一串隨機英數字，例如 `ctbc2026xyz`（用來防止別人亂打你的 endpoint） |
 
 ### 2-4. 取得公開網域
@@ -211,7 +241,7 @@ curl -X POST "https://你的網域/ctbc-webhook" \
 💵 消費金額：NT$71
 🗓 交易時間：2026/05/27 14:51
 💳 卡別：中信uniopen聯名卡附卡
-🏦 卡末4碼：1931
+🔢 卡末4碼：1931
 ```
 
 ---
