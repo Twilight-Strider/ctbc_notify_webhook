@@ -196,12 +196,25 @@ https://github.com/ItsAzni/NotificationForwarder/releases/tag/v1.0
 
 ### 3-4. 設定 Filter（只轉發中信通知）
 
-切換到 **Filter** 頁面：
+切換到 **Filter** 頁面，依照你的 App 版本選擇對應的設定方式：
+
+**版本 A：有 App filter 選擇介面**
 
 - **App filter**：選擇「中國信託銀行（Home Bank）」
 - **Text contains**：留空
 
-> ℹ️ Text contains 留空，讓所有 Home Bank 通知都送到伺服器。正卡/附卡的過濾邏輯由伺服器的 `send_to_subscribers()` 根據每個訂閱者的角色設定決定，不在手機端過濾。
+**版本 B：Package name 白名單模式（Filter mode 下拉選單）**
+
+- **Filter mode**：選 `WHITELIST`
+- **Packages list**：填入以下 package name：
+  ```
+  com.chinatrust.mobilebank
+  ```
+  （可從 Play Store 連結確認：`https://play.google.com/store/apps/details?id=com.chinatrust.mobilebank`）
+- **Max retries** / **Batch size**：維持預設（10 / 20）
+- 按 **Save Filter & Retry**
+
+> ℹ️ Text contains 或 Packages list 的過濾只是讓 Notification Forwarder 只轉發中信的通知。正卡/附卡的推送邏輯由伺服器的 `send_to_subscribers()` 根據每個訂閱者的角色設定決定，不在手機端過濾。
 
 ---
 
