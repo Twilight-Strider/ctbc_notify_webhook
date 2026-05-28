@@ -276,36 +276,6 @@ curl -X POST "https://你的網域/ctbc-webhook" \
 > }
 > ```
 
-### 方法 C：在手機 Payload template 填入模擬資料
-
-在 Notification Forwarder 的 Webhook 頁面，把 Payload template 暫時改成固定內容：
-
-**測試附卡：**
-```json
-{
-  "title": "中國信託銀行",
-  "text": "【刷卡通知】您於2026/05/27 14:51中信卡消費$71元(附卡)"
-}
-```
-
-**測試正卡：**
-```json
-{
-  "title": "中國信託銀行",
-  "text": "【刷卡通知】您於2026/05/27 14:51中信卡消費$71元(正卡)"
-}
-```
-
-按 **Test Webhook** 觸發，確認各訂閱者收到（或跳過）的行為正確。
-
-> ⚠️ 測試完成後記得把 Payload template 改回正常格式，否則之後所有真實通知都會推送這筆假資料：
-> ```json
-> {
->   "title": "{title}",
->   "text": "{text}"
-> }
-> ```
-
 ### 成功後的訊息樣式
 
 ```
