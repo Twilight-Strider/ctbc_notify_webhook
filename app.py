@@ -74,11 +74,17 @@ def format_message(parsed: dict) -> str:
 
     if parsed["card_type"]:
         if parsed["card_type"] == "附卡":
-            lines.append(f"💳 *卡別：*中信uniopen聯名卡 | 附卡")
+            lines.append(f"💳 *卡別：*中信uniopen聯名卡 \\| 附卡")
             lines.append(f"🏦 *卡末四碼：*1931")
         else:
-            lines.append(f"💳 *卡別：*中信uniopen聯名卡 | 正卡")
+            lines.append(f"💳 *卡別：*中信uniopen聯名卡 \\| 正卡")
             lines.append(f"🏦 *卡末四碼：*6020")
+
+        #兩層跳脫：
+            # 第一層：Python 字串本身
+            # 在 Python 字串裡，\ 是跳脫字元。所以 \\ 在 Python 字串裡代表「一個真正的反斜線 \」。
+            # 第二層：MarkdownV2 語法
+            # Telegram MarkdownV2 要求特殊字元前面加一個反斜線 \，所以 \| 才能讓 Telegram 把 | 當成普通字元顯示。
 
     # 如果解析失敗就直接顯示原文
     if not any([parsed["date"], parsed["amount"], parsed["card_type"]]):
