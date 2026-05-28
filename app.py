@@ -74,10 +74,10 @@ def format_message(parsed: dict) -> str:
 
     if parsed["card_type"]:
         if parsed["card_type"] == "附卡":
-            lines.append(f"💳 *卡別：*中信uniopen聯名卡*附卡*")
+            lines.append(f"💳 *卡別：*中信uniopen聯名卡 | 附卡")
             lines.append(f"🏦 *卡末四碼：*1931")
         else:
-            lines.append(f"💳 *卡別：*中信uniopen聯名卡*正卡*")
+            lines.append(f"💳 *卡別：*中信uniopen聯名卡 | 正卡")
             lines.append(f"🏦 *卡末四碼：*6020")
 
     # 如果解析失敗就直接顯示原文
